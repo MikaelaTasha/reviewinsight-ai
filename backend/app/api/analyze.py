@@ -15,6 +15,9 @@ from app.services.preprocessing import preprocess_reviews
 from app.services.product_variant import (
     analyze_product_variants,
 )
+from app.services.recommendations import (
+    generate_product_variant_recommendations,
+)
 from app.services.sentiment import (
     analyze_sentiment,
     assess_prediction,
@@ -214,6 +217,12 @@ async def analyze_reviews(
         aspect_sentiment_results=aspect_sentiment_results,
         top_k_evidence=2,
     )
+    # Generate Evidence-Based Recommendations for each Product Variant.
+    product_variant_recommendations = (
+        generate_product_variant_recommendations(
+            product_variant_analysis
+        )
+    )
 
     analysis_df["Aspect_Results"] = (
         aspect_sentiment_results
@@ -251,6 +260,7 @@ async def analyze_reviews(
         "aspect_sentiment_summary": aspect_sentiment_summary,
         "ranked_evidence": ranked_evidence,
         "product_variant_analysis": product_variant_analysis,
+        "product_variant_recommendations": (product_variant_recommendations),
         "preprocessing": preprocessing_summary,
         "sample_results": (
             analysis_df[
