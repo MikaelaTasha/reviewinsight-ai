@@ -14,7 +14,7 @@ def split_sentences(text: str) -> list[str]:
 
     sentences = re.split(
         r"(?<=[。！？.!?])\s*|\n+",
-        text,
+        str(text),
     )
 
     return [
@@ -23,26 +23,71 @@ def split_sentences(text: str) -> list[str]:
         if sentence.strip()
     ]
 
+def split_clauses(sentence: str) -> list[str]:
+    """
+    Split one sentence around contrast expressions.
+
+    Examples:
+    - 発色は良いけど、落ちやすい
+    - The color is nice, but it fades quickly
+    """
+    if not sentence:
+        return []
+
+    clause_pattern = re.compile(
+        r"\s*(?:"
+        r"けれども|けれど|だけど|ですけど|けど|"
+        r"しかし|でも|ただし|一方で|"
+        r"but|however|although|though|yet"
+        r")\s*[,、]?\s*",
+        flags=re.IGNORECASE,
+    )
+
+    clauses = clause_pattern.split(sentence)
+
+    return [
+        clause.strip(" ,、")
+        for clause in clauses
+        if clause.strip(" ,、")
+    ]
+
+def split_evidence_units(text: str) -> list[str]:
+    """
+    Split review text first into sentences and then into
+    smaller contrast-based clauses.
+    """
+    evidence_units = []
+
+    for sentence in split_sentences(text):
+        clauses = split_clauses(sentence)
+
+        if clauses:
+            evidence_units.extend(clauses)
+        else:
+            evidence_units.append(sentence)
+
+    return evidence_units
+
 
 def extract_aspects(review_text: str) -> list[dict[str, Any]]:
     """
     Detect aspects mentioned in one review and return
     supporting evidence sentences.
     """
-    sentences = split_sentences(review_text)
+    evidence_units = split_evidence_units(review_text)
     detected_aspects = []
 
     for aspect, keywords in ASPECT_KEYWORDS.items():
         evidence_sentences = []
 
-        for sentence in sentences:
-            normalized_sentence = sentence.lower()
+        for evidence_text in evidence_units:
+            normalized_text = evidence_text.lower()
 
             if any(
-                keyword.lower() in normalized_sentence
+                keyword.lower() in normalized_text
                 for keyword in keywords
             ):
-                evidence_sentences.append(sentence)
+                evidence_sentences.append(evidence_text)
 
         if evidence_sentences:
             detected_aspects.append(
