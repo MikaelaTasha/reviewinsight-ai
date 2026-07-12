@@ -3,6 +3,178 @@ from typing import Any
 
 from app.services.sentiment import analyze_sentiment
 
+NEGATIVE_PHRASES = [
+    # Japanese: longevity
+    "落ちやすい",
+    "落ちる",
+    "色落ち",
+    "消える",
+    "持たない",
+    "長持ちしない",
+    "取れやすい",
+
+    # Japanese: texture / skin reaction
+    "乾燥する",
+    "乾燥します",
+    "乾燥しやすい",
+    "皮向け",
+    "荒れる",
+    "荒れた",
+    "痒い",
+    "かゆい",
+    "ヒリヒリ",
+    "ベタつく",
+    "べたつく",
+
+    # Japanese: scent / preference
+    "苦手",
+    "嫌い",
+    "きつい",
+    "臭い",
+
+    # English
+    "fades quickly",
+    "fade quickly",
+    "doesn't last",
+    "does not last",
+    "not long lasting",
+    "too strong",
+    "dislike",
+    "hate",
+    "irritating",
+    "drying",
+    "sticky",
+]
+
+
+POSITIVE_PHRASES = [
+    # Japanese
+    "色持ちが良い",
+    "色持ち良い",
+    "落ちにくい",
+    "長持ち",
+    "乾燥しない",
+    "荒れない",
+    "気に入った",
+    "気に入っています",
+    "好きです",
+    "良い香り",
+    "いい香り",
+    "コスパが良い",
+    "安い",
+    "問題なく使用できる",
+    "問題なく使用できている",
+    "何の問題もなく",
+    "肌に優しい",
+    "肌にも優しい",
+    "刺激がない",
+    "刺激なし",
+
+    # English
+    "long lasting",
+    "long-lasting",
+    "doesn't fade",
+    "does not fade",
+    "doesnt fade",
+    "love",
+    "good scent",
+    "smells good",
+    "affordable",
+]
+
+def apply_domain_polarity_rules(
+    text: str,
+    predicted_sentiment: str,
+    confidence: float,
+) -> tuple[str, float, str | None]:
+    """
+    Apply conservative domain-specific polarity corrections.
+
+    The model prediction is only overridden when the text
+    contains a clear positive or negative phrase.
+
+    Returns:
+        corrected sentiment,
+        corrected confidence,
+        rule name or None
+    """
+    normalized_text = str(text).lower()   
+
+    matched_negative = any(
+        phrase.lower() in normalized_text
+        for phrase in NEGATIVE_PHRASES
+    )
+
+    matched_positive = any(
+        phrase.lower() in normalized_text
+        for phrase in POSITIVE_PHRASES
+    )
+
+    mixed_or_negated_markers = [
+        "わけじゃなく",
+        "わけではなく",
+        "完全に落ちるわけではない",
+        "完全に落ちてしまうわけじゃなく",
+        "not completely",
+        "but still",
+        "合わないと",
+        "何の問題もなく",
+        "問題なく使用",
+        "肌にも優しい",
+        "肌に優しい",
+    ]
+
+    has_mixed_or_negated_context = any(
+        marker in normalized_text
+        for marker in mixed_or_negated_markers
+    )     
+
+    # If both positive and negative phrases appear,
+    # keep the model output because the clause may be mixed.
+    positive_resolution_markers = [
+    "何の問題もなく",
+        "問題なく使用",
+        "肌にも優しい",
+        "肌に優しい",
+    ]
+
+    has_positive_resolution = any(
+        marker in normalized_text
+        for marker in positive_resolution_markers
+    )
+    if has_positive_resolution:
+        return (
+            "positive",
+            max(float(confidence), 0.85),
+            "positive_resolution_rule",
+        )
+    
+    if matched_negative and matched_positive:
+        return (
+            predicted_sentiment,
+            confidence,
+            "mixed_rule_match",
+        )
+
+    if matched_negative and not has_mixed_or_negated_context:
+        return (
+            "negative",
+            max(float(confidence), 0.85),
+            "negative_phrase_rule",
+        )
+
+    if matched_positive:
+        return (
+            "positive",
+            max(float(confidence), 0.85),
+            "positive_phrase_rule",
+        )
+
+    return (
+        predicted_sentiment,
+        confidence,
+        None,
+    )
 
 def get_dominant_sentiment(
     sentiment_counts: Counter,
@@ -89,14 +261,30 @@ def analyze_aspect_sentiments(
             for sentence in aspect_result["evidence"]:
                 prediction = prediction_by_sentence[sentence]
 
-                sentiment = prediction["label"]
-                confidence = float(prediction["score"])
+                model_sentiment = prediction["label"]
+                model_confidence = float(prediction["score"])
+
+                (
+                    sentiment,
+                    confidence,
+                    applied_rule,
+                ) = apply_domain_polarity_rules(
+                    text=sentence,
+                    predicted_sentiment=model_sentiment,
+                    confidence=model_confidence,
+                )
 
                 evidence_sentiments.append(
                     {
                         "text": sentence,
                         "sentiment": sentiment,
-                        "confidence": confidence,
+                        "confidence": round(confidence, 4),
+                        "model_sentiment": model_sentiment,
+                        "model_confidence": round(
+                            model_confidence, 
+                            4,
+                        ),
+                        "applied_rule": applied_rule,
                     }
                 )
 

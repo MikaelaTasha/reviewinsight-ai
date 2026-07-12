@@ -25,19 +25,16 @@ def split_sentences(text: str) -> list[str]:
 
 def split_clauses(sentence: str) -> list[str]:
     """
-    Split one sentence around contrast expressions.
-
-    Examples:
-    - 発色は良いけど、落ちやすい
-    - The color is nice, but it fades quickly
+    Split one sentence around clear contrast expressions.
     """
     if not sentence:
         return []
 
     clause_pattern = re.compile(
         r"\s*(?:"
+        r"とは思いますが|と思いますが|"
         r"けれども|けれど|だけど|ですけど|けど|"
-        r"しかし|でも|ただし|一方で|"
+        r"ものの|しかし|でも|ただ|一方で|"
         r"but|however|although|though|yet"
         r")\s*[,、]?\s*",
         flags=re.IGNORECASE,
