@@ -82,6 +82,43 @@ POSITIVE_PHRASES = [
     "affordable",
 ]
 
+POSITIVE_SLANG_PHRASES = [
+    "ドンピシャ",
+    "好みにドンピシャ",
+    "好みど真ん中",
+    "最高すぎる",
+    "可愛すぎる",
+    "かわいすぎる",
+    "良すぎる",
+    "よすぎる",
+    "神",
+    "リピ確",
+]
+
+def detect_positive_slang_context(text: str) -> bool:
+    """
+    Detect positive Japanese slang only when it appears
+    together with clearly positive context.
+    """
+    normalized_text = str(text).lower()
+
+    has_positive_context = any(
+        phrase.lower() in normalized_text
+        for phrase in POSITIVE_SLANG_PHRASES
+    )
+
+    has_yabai = any(
+        expression in normalized_text
+        for expression in [
+            "ヤバい",
+            "やばい",
+            "ヤバ",
+            "やば",
+        ]
+    )
+
+    return has_positive_context and has_yabai
+
 def apply_domain_polarity_rules(
     text: str,
     predicted_sentiment: str,
@@ -98,7 +135,11 @@ def apply_domain_polarity_rules(
         corrected confidence,
         rule name or None
     """
-    normalized_text = str(text).lower()   
+    normalized_text = str(text).lower()
+
+    positive_slang_context = detect_positive_slang_context(
+        normalized_text
+    )   
 
     matched_negative = any(
         phrase.lower() in normalized_text
@@ -109,6 +150,13 @@ def apply_domain_polarity_rules(
         phrase.lower() in normalized_text
         for phrase in POSITIVE_PHRASES
     )
+
+    if positive_slang_context:
+        return (
+            "positive",
+            max(float(confidence), 0.90),
+            "positive_slang_rule",
+        )
 
     mixed_or_negated_markers = [
         "わけじゃなく",
