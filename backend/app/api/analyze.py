@@ -3,6 +3,9 @@ import logging
 import pandas as pd
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+from app.services.aspect_sentiment import (
+    analyze_aspect_sentiments,
+)
 from app.services.aspects import (
     extract_aspects,
     summarize_aspects,
@@ -16,6 +19,8 @@ from app.utils.validation import (
     validate_columns,
     validate_numeric_columns,
 )
+
+
 
 
 router = APIRouter(
@@ -178,23 +183,30 @@ async def analyze_reviews(
         for assessment in assessments
     ]
 
-        # Extract product aspects and supporting evidence.
+    # Extract product aspects and supporting evidence.
     aspect_results = [
         extract_aspects(str(review_text))
         for review_text in analysis_df["Review_Text"]
     ]
 
-    analysis_df["Aspect_Results"] = aspect_results
+    #count how many reviews mention each aspect.
+    aspect_summary = summarize_aspects(aspect_results)
+
+    #analyze the sentiment of every aspect eveidence sentence.
+    (
+        aspect_sentiment_results,
+        aspect_sentiment_summary,
+    ) = analyze_aspect_sentiments(aspect_results)
+
+    analysis_df["Aspect_Results"] = aspect_sentiment_results
 
     analysis_df["Detected_Aspects"] = [
         [
             result["aspect"]
             for result in review_aspects
         ]
-        for review_aspects in aspect_results
+        for review_aspects in aspect_sentiment_results
     ]
-
-    aspect_summary = summarize_aspects(aspect_results)
 
     # Count how many predictions need manual review.
     needs_review_count = int(
@@ -209,13 +221,15 @@ async def analyze_reviews(
         needs_review_count,
     )
 
-    # Return analysis results.
+    # Return analysis results dictionary.
     return {
         "status": "success",
         "filename": file.filename,
         "analyzed_reviews": len(analysis_df),
         "needs_review_count": needs_review_count,
         "sentiment_summary": sentiment_summary,
+        "aspect_summary": aspect_summary,
+        "aspect_sentiment_summary": aspect_sentiment_summary,
         "preprocessing": preprocessing_summary,
         "sample_results": (
             analysis_df[
@@ -239,5 +253,4 @@ async def analyze_reviews(
             .head(10)
             .to_dict(orient="records")
         ),
-        "aspect_summary": aspect_summary,
     }
