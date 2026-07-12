@@ -1,9 +1,0 @@
-# Python
-__pycache__/
-*.pyc
-
-# Virtual environment
-venv/
-
-# macOS
-.DS_Store
