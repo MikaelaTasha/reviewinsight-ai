@@ -1,22 +1,21 @@
 from fastapi import FastAPI
+from app.api.upload import router as upload_router
 
 app = FastAPI(
     title="ReviewInsight AI API",
     description="Backend API for evidence-based product review analysis.",
-    version="0.1.0",
+    version="0.1.0"
 )
 
+app.include_router(upload_router)
 
 @app.get("/")
-def read_root() -> dict[str, str]:
-    """Return a simple status message for the API."""
+def read_root():
     return {
         "message": "ReviewInsight AI backend is running",
-        "status": "success",
+        "status": "success"
     }
 
-
 @app.get("/health")
-def health_check() -> dict[str, str]:
-    """Return the current health status of the backend."""
+def health_check():
     return {"status": "healthy"}
