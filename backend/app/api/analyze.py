@@ -12,6 +12,9 @@ from app.services.aspects import (
 )
 from app.services.evidence import rank_aspect_evidence
 from app.services.preprocessing import preprocess_reviews
+from app.services.product_variant import (
+    analyze_product_variants,
+)
 from app.services.sentiment import (
     analyze_sentiment,
     assess_prediction,
@@ -205,7 +208,16 @@ async def analyze_reviews(
         top_k=3,
     )
 
-    analysis_df["Aspect_Results"] = aspect_sentiment_results
+    # Aggregate results by Product Name and Color.
+    product_variant_analysis = analyze_product_variants(
+        analysis_df=analysis_df,
+        aspect_sentiment_results=aspect_sentiment_results,
+        top_k_evidence=2,
+    )
+
+    analysis_df["Aspect_Results"] = (
+        aspect_sentiment_results
+    )
 
     analysis_df["Detected_Aspects"] = [
         [
@@ -238,6 +250,7 @@ async def analyze_reviews(
         "aspect_summary": aspect_summary,
         "aspect_sentiment_summary": aspect_sentiment_summary,
         "ranked_evidence": ranked_evidence,
+        "product_variant_analysis": product_variant_analysis,
         "preprocessing": preprocessing_summary,
         "sample_results": (
             analysis_df[
