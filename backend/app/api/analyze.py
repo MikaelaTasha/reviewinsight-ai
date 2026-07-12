@@ -3,6 +3,10 @@ import logging
 import pandas as pd
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+from app.services.aspects import (
+    extract_aspects,
+    summarize_aspects,
+)
 from app.services.preprocessing import preprocess_reviews
 from app.services.sentiment import (
     analyze_sentiment,
@@ -174,6 +178,24 @@ async def analyze_reviews(
         for assessment in assessments
     ]
 
+        # Extract product aspects and supporting evidence.
+    aspect_results = [
+        extract_aspects(str(review_text))
+        for review_text in analysis_df["Review_Text"]
+    ]
+
+    analysis_df["Aspect_Results"] = aspect_results
+
+    analysis_df["Detected_Aspects"] = [
+        [
+            result["aspect"]
+            for result in review_aspects
+        ]
+        for review_aspects in aspect_results
+    ]
+
+    aspect_summary = summarize_aspects(aspect_results)
+
     # Count how many predictions need manual review.
     needs_review_count = int(
         analysis_df["Needs_Review"].sum()
@@ -210,9 +232,12 @@ async def analyze_reviews(
                     "Evidence",
                     "Review_Priority",
                     "Recommendation",
+                    "Detected_Aspects",
+                    "Aspect_Results",
                 ]
             ]
             .head(10)
             .to_dict(orient="records")
         ),
+        "aspect_summary": aspect_summary,
     }
