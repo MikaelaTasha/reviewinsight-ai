@@ -1,6 +1,8 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile
 import pandas as pd
 
+from app.utils.validation import (validate_columns, validate_numeric_columns)
+
 router = APIRouter()
 
 REQUIRED_COLUMNS = [
@@ -30,6 +32,24 @@ async def upload_csv(file: UploadFile = File(...)):
 
     try:
         df = pd.read_csv(file.file)
+        missing_columns = validate_columns(df)
+
+        if missing_columns:
+            return {
+                "status": "error",
+                "message": "Missing required columns.",
+                "missing_columns": missing_columns,
+            }
+        
+        invalid_numeric_values = validate_numeric_columns(df, ["Price", "Star_Rating"],)
+
+        if invalid_numeric_values:
+            return {
+                "status": "error",
+                "message": "Some numeric columns contain invalid values.",
+                "invalid_values": invalid_numeric_values,
+            }
+        
     except pd.errors.EmptyDataError:
         raise HTTPException(
             status_code=400,
