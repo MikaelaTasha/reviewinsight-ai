@@ -10,6 +10,7 @@ from app.services.aspects import (
     extract_aspects,
     summarize_aspects,
 )
+from app.services.evidence import rank_aspect_evidence
 from app.services.preprocessing import preprocess_reviews
 from app.services.sentiment import (
     analyze_sentiment,
@@ -198,6 +199,12 @@ async def analyze_reviews(
         aspect_sentiment_summary,
     ) = analyze_aspect_sentiments(aspect_results)
 
+    # Rank the strongest evidence for each Aspect–Sentiment Pair.
+    ranked_evidence = rank_aspect_evidence(
+        aspect_sentiment_results,
+        top_k=3,
+    )
+
     analysis_df["Aspect_Results"] = aspect_sentiment_results
 
     analysis_df["Detected_Aspects"] = [
@@ -230,6 +237,7 @@ async def analyze_reviews(
         "sentiment_summary": sentiment_summary,
         "aspect_summary": aspect_summary,
         "aspect_sentiment_summary": aspect_sentiment_summary,
+        "ranked_evidence": ranked_evidence,
         "preprocessing": preprocessing_summary,
         "sample_results": (
             analysis_df[
